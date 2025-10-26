@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import SplashScreen from "@/components/splash-screen"
 import OnboardingFlow from "@/components/onboarding-flow"
 import AuthFlow from "@/components/auth-flow"
@@ -10,85 +10,91 @@ import SearchScreen from "@/components/search-screen"
 import CartScreen from "@/components/cart-screen"
 import ProfileScreen from "@/components/profile-screen"
 import OrderHistoryScreen from "@/components/order-history-screen"
-import { AppProvider, useAppContext } from "@/context/app-context"
 import RestaurantDetailPage from "@/components/restaurant-detail-page"
 import FoodItemDetailPage from "@/components/food-item-detail-page"
 import CartScreenPage from "@/components/cart-screen-page"
 import CheckoutScreenPage from "@/components/checkout-screen-page"
 import OrderTrackingPage from "@/components/order-tracking-page"
+import { auth, db } from "@/lib/firebase"
+import { onAuthStateChanged } from "firebase/auth"
+import { doc, getDoc } from "firebase/firestore"
+import { useAppStore } from "@/store/appStore"
 
-type AppScreen =
-  | "splash"
-  | "onboarding"
-  | "auth"
-  | "app"
-  | "order-tracking"
-  | "restaurant"
-  | "food-item"
-  | "cart-detail"
-  | "checkout"
-  | "tracking"
-type AppTab = "home" | "search" | "history" | "cart" | "profile"
+export default function AppContent() {
+  const {
+    currentScreen,
+    activeTab,
+    selectedMenuItem,
+    hasSeenOnboarding,
+    checkingAuth,
+    setScreen,
+    setTab,
+    setRestaurant,
+    setMenuItem,
+    setOnboardingSeen,
+    setCheckingAuth,
+  } = useAppStore()
 
-function AppContent() {
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>("splash")
-  const [activeTab, setActiveTab] = useState<AppTab>("home")
-  const [selectedMenuItem, setSelectedMenuItem] = useState<any>(null)
-  const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null)
-  const { setSelectedRestaurant: setContextRestaurant, setSelectedMenuItem: setContextMenuItem } = useAppContext()
+  // ✅ Handle auth persistence
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+          const userData = userDoc.exists() ? userDoc.data() : {}
 
-  const handleSplashComplete = () => {
-    setCurrentScreen("onboarding")
-  }
+          localStorage.setItem(
+            "lani-user",
+            JSON.stringify({
+              uid: firebaseUser.uid,
+              name: userData?.fullName || firebaseUser.displayName || "",
+              email: firebaseUser.email || "",
+              role: "user",
+            })
+          )
 
+          setScreen("app")
+        } catch (error) {
+          console.error("Auto-login fetch failed:", error)
+          setScreen("auth")
+        }
+      } else {
+        setScreen(hasSeenOnboarding ? "auth" : "onboarding")
+      }
+      setCheckingAuth(false)
+    })
+
+    return () => unsubscribe()
+  }, [hasSeenOnboarding, setScreen, setCheckingAuth])
+
+  // ✅ Mark onboarding as complete
   const handleOnboardingComplete = () => {
-    setCurrentScreen("auth")
+    localStorage.setItem("hasSeenOnboarding", "true")
+    setOnboardingSeen(true)
+    setScreen("auth")
   }
 
-  const handleAuthComplete = () => {
-    setCurrentScreen("app")
-  }
-
-  const handleShowOrderTracking = () => {
-    setCurrentScreen("order-tracking")
-  }
-
-  const handleCloseOrderTracking = () => {
-    setCurrentScreen("app")
-  }
+  const handleAuthComplete = () => setScreen("app")
 
   const handleSelectRestaurant = (restaurant: any) => {
-    setSelectedRestaurant(restaurant)
-    setContextRestaurant(restaurant)
-    setCurrentScreen("restaurant")
+    setRestaurant(restaurant)
+    setScreen("restaurant")
   }
 
   const handleSelectMenuItem = (item: any) => {
-    setSelectedMenuItem(item)
-    setContextMenuItem(item)
-    setCurrentScreen("food-item")
+    setMenuItem(item)
+    setScreen("food-item")
   }
 
   const handleAddToCart = () => {
-    setCurrentScreen("app")
-    setActiveTab("cart")
+    setScreen("app")
+    setTab("cart")
   }
 
-  const handleViewCart = () => {
-    setCurrentScreen("cart-detail")
-  }
-
-  const handleCheckout = () => {
-    setCurrentScreen("checkout")
-  }
-
-  const handlePlaceOrder = () => {
-    setCurrentScreen("tracking")
-  }
-
-  const handleBackToApp = () => {
-    setCurrentScreen("app")
-  }
+  const handleViewCart = () => setScreen("cart-detail")
+  const handleCheckout = () => setScreen("checkout")
+  const handlePlaceOrder = () => setScreen("tracking")
+  const handleBackToApp = () => setScreen("app")
 
   const renderAppContent = () => {
     switch (activeTab) {
@@ -107,38 +113,58 @@ function AppContent() {
     }
   }
 
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Checking session...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="mobile-safe-area">
-      {currentScreen === "splash" && <SplashScreen onComplete={handleSplashComplete} />}
-      {currentScreen === "onboarding" && <OnboardingFlow onComplete={handleOnboardingComplete} />}
+      {currentScreen === "splash" && (
+        <SplashScreen
+          onComplete={() =>
+            setScreen(hasSeenOnboarding ? "auth" : "onboarding")
+          }
+        />
+      )}
+      {currentScreen === "onboarding" && (
+        <OnboardingFlow onComplete={handleOnboardingComplete} />
+      )}
       {currentScreen === "auth" && <AuthFlow onComplete={handleAuthComplete} />}
       {currentScreen === "restaurant" && (
-        <RestaurantDetailPage onBack={handleBackToApp} onSelectMenuItem={handleSelectMenuItem} />
+        <RestaurantDetailPage
+          onBack={handleBackToApp}
+          onSelectMenuItem={handleSelectMenuItem}
+        />
       )}
       {currentScreen === "food-item" && selectedMenuItem && (
         <FoodItemDetailPage
           item={selectedMenuItem}
-          onBack={() => setCurrentScreen("restaurant")}
+          onBack={() => setScreen("restaurant")}
           onAddToCart={handleAddToCart}
         />
       )}
-      {currentScreen === "cart-detail" && <CartScreenPage onBack={handleBackToApp} onCheckout={handleCheckout} />}
-      {currentScreen === "checkout" && <CheckoutScreenPage onBack={handleBackToApp} onPlaceOrder={handlePlaceOrder} />}
-      {currentScreen === "tracking" && <OrderTrackingPage onBack={handleBackToApp} />}
+      {currentScreen === "cart-detail" && (
+        <CartScreenPage onBack={handleBackToApp} onCheckout={handleCheckout} />
+      )}
+      {currentScreen === "checkout" && (
+        <CheckoutScreenPage
+          onBack={handleBackToApp}
+          onPlaceOrder={handlePlaceOrder}
+        />
+      )}
+      {currentScreen === "tracking" && (
+        <OrderTrackingPage onBack={handleBackToApp} />
+      )}
       {currentScreen === "app" && (
         <div className="flex-1 flex flex-col">
           {renderAppContent()}
-          <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+          <BottomNavigation activeTab={activeTab} onTabChange={setTab} />
         </div>
       )}
     </div>
-  )
-}
-
-export default function Home() {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
   )
 }

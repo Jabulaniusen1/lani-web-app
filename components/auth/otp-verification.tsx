@@ -1,17 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 interface OTPVerificationProps {
-  phone: string
-  onVerify: () => void
+  confirmationResult: any
+  onVerify: (code: string) => void
+  error?: string
 }
 
-export default function OTPVerification({ phone, onVerify }: OTPVerificationProps) {
-  const [otp, setOtp] = useState(["", "", "", ""])
+export default function OTPVerification({ confirmationResult, onVerify, error }: OTPVerificationProps) {
+  const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const [loading, setLoading] = useState(false)
+  const [localError, setLocalError] = useState("")
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return
@@ -20,7 +22,7 @@ export default function OTPVerification({ phone, onVerify }: OTPVerificationProp
     setOtp(newOtp)
 
     // Auto-focus next input
-    if (value && index < 3) {
+    if (value && index < otp.length - 1) {
       const nextInput = document.getElementById(`otp-${index + 1}`)
       nextInput?.focus()
     }
@@ -33,27 +35,38 @@ export default function OTPVerification({ phone, onVerify }: OTPVerificationProp
     }
   }
 
+  const handleVerify = async () => {
+    const code = otp.join("").trim()
+    if (code.length < otp.length) {
+      setLocalError("Please enter the full 6-digit OTP")
+      return
+    }
+
+    setLoading(true)
+    setLocalError("")
+    try {
+      await onVerify(code)
+    } catch (err: any) {
+      console.error(err)
+      setLocalError(err.message || "Verification failed. Try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const isComplete = otp.every((digit) => digit !== "")
 
   return (
     <div className="flex-1 flex flex-col bg-background">
-      {/* Status Bar */}
-      <div className="px-4 pt-3 pb-2 flex justify-between items-center text-xs text-muted-foreground">
-        <span>9:41</span>
-        <div className="flex gap-1">
-          <span>📶</span>
-          <span>🔋</span>
-        </div>
-      </div>
-
+    
       {/* Content */}
       <div className="flex-1 flex flex-col px-4 py-8 justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground mb-1">Verify your number</h1>
-          <p className="text-sm text-muted-foreground mb-8">Enter OTP here</p>
+          <p className="text-sm text-muted-foreground mb-8">Enter the 6-digit OTP sent to your phone</p>
 
           {/* OTP Inputs */}
-          <div className="flex gap-3 mb-6 justify-center">
+          <div className="flex gap-3 mb-4 justify-center">
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -69,20 +82,30 @@ export default function OTPVerification({ phone, onVerify }: OTPVerificationProp
             ))}
           </div>
 
+          {/* Error Messages */}
+          {localError && <p className="text-xs text-destructive text-center mb-2">{localError}</p>}
+          {error && <p className="text-xs text-destructive text-center mb-2">{error}</p>}
+
           {/* Resend Link */}
-          <p className="text-xs text-muted-foreground text-center">
-            Didn't get the code?{" "}
-            <button className="text-primary font-semibold hover:underline">Click here to resend (48s)</button>
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            Didn’t get the code?{" "}
+            <button
+              className="text-primary font-semibold hover:underline disabled:opacity-50"
+              disabled={loading}
+              onClick={() => window.location.reload()} // basic resend behavior
+            >
+              Resend code
+            </button>
           </p>
         </div>
 
-        {/* Button */}
+        {/* Verify Button */}
         <Button
-          onClick={onVerify}
-          disabled={!isComplete}
+          onClick={handleVerify}
+          disabled={!isComplete || loading}
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 rounded-lg disabled:opacity-50"
         >
-          Verify
+          {loading ? "Verifying..." : "Verify"}
         </Button>
       </div>
     </div>

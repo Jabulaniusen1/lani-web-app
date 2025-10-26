@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ChevronLeft, Edit2 } from "lucide-react"
-import { useAppContext } from "@/context/app-context"
+import { useCheckoutStore } from "@/store/checkoutStore"
 import { DUMMY_USER } from "@/lib/dummy-data"
 
 interface CheckoutScreenPageProps {
@@ -11,7 +11,7 @@ interface CheckoutScreenPageProps {
 }
 
 export default function CheckoutScreenPage({ onBack, onPlaceOrder }: CheckoutScreenPageProps) {
-  const { cart, setDeliveryAddress, setCurrentOrder } = useAppContext()
+  const { cart, setDeliveryAddress, setCurrentOrder } = useCheckoutStore()
   const [showAddressForm, setShowAddressForm] = useState(false)
   const [formData, setFormData] = useState({
     fullName: DUMMY_USER.name,

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ChevronLeft, MessageCircle, Phone, Star } from "lucide-react"
-import { useAppContext } from "@/context/app-context"
+import { useRestaurantStore } from "@/store/restaurantStore"
 import { DUMMY_MENU_ITEMS } from "@/lib/dummy-data"
 import Image from "next/image"
 
@@ -12,8 +12,7 @@ interface RestaurantDetailPageProps {
 }
 
 export default function RestaurantDetailPage({ onBack, onSelectMenuItem }: RestaurantDetailPageProps) {
-  const { selectedRestaurant } = useAppContext()
-  const [selectedCategory, setSelectedCategory] = useState("All")
+  const { selectedRestaurant, selectedCategory, setSelectedCategory, addToCart } = useRestaurantStore()
 
   if (!selectedRestaurant) return null
 
@@ -107,7 +106,7 @@ export default function RestaurantDetailPage({ onBack, onSelectMenuItem }: Resta
                 Order now
               </button>
               <button
-                onClick={() => onSelectMenuItem(item)}
+                onClick={() => addToCart(item)}
                 className="flex-1 border-2 border-primary text-primary py-2 rounded-lg font-medium hover:bg-primary/10"
               >
                 Add to Cart

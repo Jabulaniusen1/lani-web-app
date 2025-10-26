@@ -1,8 +1,8 @@
 "use client"
 
 import { ChevronLeft, Trash2, Minus, Plus } from "lucide-react"
-import { useAppContext } from "@/context/app-context"
 import Image from "next/image"
+import { useCartStore } from "@/store/cartStore"
 
 interface CartScreenPageProps {
   onBack: () => void
@@ -10,7 +10,7 @@ interface CartScreenPageProps {
 }
 
 export default function CartScreenPage({ onBack, onCheckout }: CartScreenPageProps) {
-  const { cart, removeFromCart, updateCartItemQuantity } = useAppContext()
+  const { cart, removeFromCart, updateCartItemQuantity } = useCartStore()
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const deliveryFee = 1000

@@ -1,17 +1,23 @@
 "use client"
 
 import { ChevronLeft, MessageCircle, Phone, Clock } from "lucide-react"
-import { useAppContext } from "@/context/app-context"
 import Image from "next/image"
+import { useOrderTrackingStore } from "@/store/orderTrackingStore"
 
 interface OrderTrackingPageProps {
   onBack: () => void
 }
 
 export default function OrderTrackingPage({ onBack }: OrderTrackingPageProps) {
-  const { currentOrder } = useAppContext()
+  const { currentOrder } = useOrderTrackingStore()
 
-  if (!currentOrder) return null
+  if (!currentOrder) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+        <p>No active order tracking at the moment.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-background overflow-y-auto pb-20">
@@ -28,7 +34,12 @@ export default function OrderTrackingPage({ onBack }: OrderTrackingPageProps) {
 
       {/* Map */}
       <div className="relative w-full h-64 bg-muted">
-        <Image src="/delivery-map-with-rider-location.jpg" alt="Delivery map" fill className="object-cover" />
+        <Image
+          src="/delivery-map-with-rider-location.jpg"
+          alt="Delivery map"
+          fill
+          className="object-cover"
+        />
       </div>
 
       {/* Tracking Info */}
@@ -46,7 +57,12 @@ export default function OrderTrackingPage({ onBack }: OrderTrackingPageProps) {
         <div className="bg-card rounded-lg p-4 border border-border">
           <div className="flex items-center gap-3 mb-4">
             <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted">
-              <Image src={currentOrder.driverImage || "/placeholder.svg"} alt="Driver" fill className="object-cover" />
+              <Image
+                src={currentOrder.driverImage || "/placeholder.svg"}
+                alt="Driver"
+                fill
+                className="object-cover"
+              />
             </div>
             <div className="flex-1">
               <h3 className="font-bold">{currentOrder.driverName}</h3>

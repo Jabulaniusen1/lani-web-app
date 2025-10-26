@@ -2,17 +2,25 @@
 
 import { useState } from "react"
 import { ChevronLeft, Minus, Plus } from "lucide-react"
-import { useAppContext, type MenuItem } from "@/context/app-context"
+import { useRestaurantStore } from "@/store/restaurantStore"
 import Image from "next/image"
 
 interface FoodItemDetailPageProps {
-  item: MenuItem
+  item: {
+    id: string
+    name: string
+    price: number
+    description?: string
+    image?: string
+    ingredients?: string[]
+    allergens?: string
+  }
   onBack: () => void
   onAddToCart: () => void
 }
 
 export default function FoodItemDetailPage({ item, onBack, onAddToCart }: FoodItemDetailPageProps) {
-  const { addToCart } = useAppContext()
+  const { addToCart, selectedRestaurant } = useRestaurantStore()
   const [quantity, setQuantity] = useState(1)
 
   const handleAddToCart = () => {
@@ -22,7 +30,7 @@ export default function FoodItemDetailPage({ item, onBack, onAddToCart }: FoodIt
       price: item.price,
       quantity,
       image: item.image,
-      restaurantId: "1",
+      restaurantId: selectedRestaurant?.id || "unknown",
     })
     onAddToCart()
   }
@@ -68,12 +76,12 @@ export default function FoodItemDetailPage({ item, onBack, onAddToCart }: FoodIt
         </div>
 
         {/* Ingredients */}
-        {item.ingredients && item.ingredients.length > 0 && (
+        {item.ingredients?.length ? (
           <div>
             <h3 className="font-bold mb-2">Ingredients:</h3>
             <p className="text-muted-foreground">{item.ingredients.join(", ")}</p>
           </div>
-        )}
+        ) : null}
 
         {/* Allergen Info */}
         {item.allergens && (

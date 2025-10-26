@@ -53,14 +53,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   return (
     <div className="flex-1 flex flex-col bg-background">
-      {/* Status Bar */}
-      <div className="px-4 pt-3 pb-2 flex justify-between items-center text-xs text-muted-foreground">
-        <span>9:41</span>
-        <div className="flex gap-1">
-          <span>📶</span>
-          <span>🔋</span>
-        </div>
-      </div>
 
       {/* Content */}
       <div className="flex-1 flex flex-col px-4 py-8">
