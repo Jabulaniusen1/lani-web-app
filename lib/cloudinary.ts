@@ -18,12 +18,12 @@ export const uploadToCloudinary = async (file: File): Promise<string> => {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
-    console.log("✅ Cloudinary upload success:", response.data);
+    console.log("Cloudinary upload success:", response.data);
 
     const { secure_url, url } = response.data;
     return secure_url || url;
   } catch (err: any) {
-    console.error("❌ Cloudinary upload failed:", err.response?.data || err.message || err);
+    console.error("Cloudinary upload failed:", err.response?.data || err.message || err);
     throw new Error(err.response?.data?.error?.message || "Cloudinary upload failed");
   }
 };

@@ -9,7 +9,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 
 interface LoginFormProps {
-  onSuccess: () => void
+  onSuccess: (email: string, password: string) => void
   onSwitchToSignUp: () => void
 }
 
@@ -43,7 +43,7 @@ export default function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProp
         localStorage.removeItem("keepLoggedIn")
       }
 
-      onSuccess()
+      onSuccess(email, password)
     } catch (err: any) {
       console.error("Login failed:", err)
       toast.error("Invalid email or password. Please try again.", {

@@ -19,6 +19,8 @@ import { auth, db } from "@/lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { useAppStore } from "@/store/appStore"
+import { useRestaurantStore } from "@/store/restaurantStore"
+import {Spinner} from "@/components/ui/spinner"
 
 export default function AppContent() {
   const {
@@ -29,13 +31,18 @@ export default function AppContent() {
     checkingAuth,
     setScreen,
     setTab,
-    setRestaurant,
     setMenuItem,
     setOnboardingSeen,
     setCheckingAuth,
   } = useAppStore()
 
-  // ✅ Handle auth persistence
+  const {
+    setSelectedRestaurant,
+    fetchRestaurantProfile,
+    fetchRestaurantMenu,
+  } = useRestaurantStore()
+
+  // Handle auth persistence
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -67,7 +74,7 @@ export default function AppContent() {
     return () => unsubscribe()
   }, [hasSeenOnboarding, setScreen, setCheckingAuth])
 
-  // ✅ Mark onboarding as complete
+  //  Mark onboarding as complete
   const handleOnboardingComplete = () => {
     localStorage.setItem("hasSeenOnboarding", "true")
     setOnboardingSeen(true)
@@ -76,8 +83,12 @@ export default function AppContent() {
 
   const handleAuthComplete = () => setScreen("app")
 
-  const handleSelectRestaurant = (restaurant: any) => {
-    setRestaurant(restaurant)
+   const handleSelectRestaurant = async (restaurant: any) => {
+    setSelectedRestaurant(restaurant)
+
+    await fetchRestaurantProfile(restaurant.id)
+    await fetchRestaurantMenu(restaurant.id)
+
     setScreen("restaurant")
   }
 
@@ -116,7 +127,7 @@ export default function AppContent() {
   if (checkingAuth) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p>Checking session...</p>
+        <Spinner className='w-6 h-6 text-primary'/>
       </div>
     )
   }

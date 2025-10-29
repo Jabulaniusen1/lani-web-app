@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 interface SignUpFormProps {
-  onNext: (fullName:string, email: string, phone: string) => void
+  onNext: (fullName: string, email: string, phone: string, password: string) => void
   onSwitchToLogin: () => void
 }
 
@@ -13,9 +13,10 @@ export default function SignUpForm({ onNext, onSwitchToLogin }: SignUpFormProps)
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [password, setPassword] = useState("")
   const [emailError, setEmailError] = useState("")
-  const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
   const validatePhone = (value: string) => /^\+?\d{10,15}$/.test(value)
@@ -28,19 +29,25 @@ export default function SignUpForm({ onNext, onSwitchToLogin }: SignUpFormProps)
       setFormError("Full name is required")
       return
     }
+
     if (!email.trim() || !validateEmail(email)) {
       setEmailError("Please enter a valid email address")
       return
     }
+
     if (!phone.trim() || !validatePhone(phone)) {
       setFormError("Please enter a valid phone number with country code (e.g., +234...)")
       return
     }
 
+    if (!password.trim() || password.length < 6) {
+      setFormError("Password must be at least 6 characters")
+      return
+    }
+
     setLoading(true)
     try {
-      // Move to OTP step
-      onNext(fullName,email, phone,password)
+      onNext(fullName, email, phone, password)
     } catch (error: any) {
       console.error(error)
       setFormError("Something went wrong. Please try again.")
@@ -87,6 +94,14 @@ export default function SignUpForm({ onNext, onSwitchToLogin }: SignUpFormProps)
               className="h-12 bg-white border-muted rounded-lg"
             />
 
+            <Input
+              type="password"
+              placeholder="Enter a password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-12 bg-white border-muted rounded-lg"
+            />
+
             {formError && <p className="text-xs text-destructive mt-1">{formError}</p>}
           </div>
         </div>
@@ -94,7 +109,7 @@ export default function SignUpForm({ onNext, onSwitchToLogin }: SignUpFormProps)
         <div className="space-y-3">
           <Button
             onClick={handleContinue}
-            disabled={!fullName.trim() || !email.trim() || !phone.trim() || loading}
+            disabled={!fullName.trim() || !email.trim() || !phone.trim() || !password.trim() || loading}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 rounded-lg disabled:opacity-50"
           >
             {loading ? "Please wait..." : "Continue"}

@@ -7,7 +7,6 @@ import OTPVerification from "@/components/auth/otp-verification"
 import VerificationSuccess from "@/components/auth/verification-success"
 import { auth, db } from "@/lib/firebase"
 import {
-  signInWithEmailAndPassword,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   UserCredential,
@@ -21,6 +20,7 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore"
 import { toast } from "sonner"
 import { useAuthStore } from "@/store/authStore"
+import {Spinner} from "@/components/ui/spinner"
 
 type AuthStep = "login" | "signup" | "otp" | "success"
 
@@ -39,9 +39,9 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
   const [checking, setChecking] = useState(true)
 
   // Zustand store
-  const { user, setUser, login, signup } = useAuthStore()
+  const {  setUser, login, } = useAuthStore()
 
-  // ✅ Auto-login if Firebase session exists
+  //  Auto-login if Firebase session exists
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -57,7 +57,6 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
     return () => unsubscribe()
   }, [setUser, onComplete])
 
-  // 🔹 SIGN UP STEP 1 — Start OTP verification
   const handleSignUpNext = async (fullName: string, email: string, phone: string, password: string) => {
     setFullName(fullName)
     setUserEmail(email)
@@ -66,7 +65,7 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
     setFirebaseError("")
 
     try {
-      const recaptchaVerifier = new RecaptchaVerifier("recaptcha-container", { size: "invisible" }, auth)
+      const recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" })
       const result = await signInWithPhoneNumber(auth, phone, recaptchaVerifier)
       setConfirmationResult(result)
       setCurrentStep("otp")
@@ -78,7 +77,6 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
     }
   }
 
-  // 🔹 SIGN UP STEP 2 — Verify OTP and create user
   const handleOTPVerify = async (code: string) => {
     if (!confirmationResult) return
     try {
@@ -97,6 +95,15 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
         createdAt: new Date(),
       })
 
+         await setDoc(doc(db, "user_profiles", firebaseUser.uid), {
+        userId: firebaseUser.uid,
+        fullName,
+        phone: "",
+        address: "",
+        photoURL: "",
+      updatedAt: new Date().toISOString(),
+    })
+
       setUser(firebaseUser)
       toast.success("Your account has been verified successfully 🎉")
       setCurrentStep("success")
@@ -107,7 +114,6 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
     }
   }
 
-  // 🔹 LOGIN — Persistent session
   const handleLogin = async (email: string, password: string) => {
     try {
       await setPersistence(auth, browserLocalPersistence)
@@ -130,7 +136,7 @@ export default function AuthFlow({ onComplete }: AuthFlowProps) {
   if (checking) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p>Loading...</p>
+      <Spinner className='w-6 h-6 text-primary'/>
       </div>
     )
   }

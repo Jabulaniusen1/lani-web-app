@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
+      <body className={`font-sans antialiased ${_geist.className}`}>
         <div className="mobile-container">{children}</div>
       <Toaster richColors position="top-center" />
         <Analytics />

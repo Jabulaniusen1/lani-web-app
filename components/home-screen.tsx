@@ -1,19 +1,13 @@
 "use client"
 
 import { MapPin, Bell, ChevronLeft, ChevronRight } from "lucide-react"
-import { useState, useRef } from "react"
-import { DUMMY_RESTAURANTS, DUMMY_USER } from "@/lib/dummy-data"
-
-interface Restaurant {
-  id: string
-  name: string
-  location: string
-  image: string
-  rating: number
-  reviews: number
-  deliveryTime: string
-  phone: string
-}
+import { useState, useEffect, useRef } from "react"
+import { useProfileStore } from "@/store/profileStore"
+import { useAuthStore } from "@/store/authStore"
+import { useRestaurantStore } from "@/store/restaurantStore"
+import { Spinner } from "@/components/ui/spinner"
+import { AlertCircle } from "lucide-react"
+import { useTopMeals } from "@/hooks/useTopMeals"
 
 interface Meal {
   id: string
@@ -32,6 +26,19 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
   const [restaurantScroll, setRestaurantScroll] = useState(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
+  const { profile, fetchProfile } = useProfileStore()
+  const user = useAuthStore((state) => state.user)
+  const { restaurants, fetchRestaurants } = useRestaurantStore()
+  const { topMeals, loading } = useTopMeals(5)
+
+  useEffect(() => {
+    if (user?.uid) fetchProfile().catch(console.error)
+  }, [user, fetchProfile])
+
+  useEffect(() => {
+    fetchRestaurants().catch(console.error)
+  }, [fetchRestaurants])
+
   const handleScroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
       const scrollAmount = 200
@@ -46,22 +53,7 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
     }
   }
 
-  const topMeals: Meal[] = [
-    {
-      id: "1-1",
-      name: "Okro soup & Garri",
-      description: "Thick okro soup with fresh fish, served hot with smooth white garri.",
-      price: 2800,
-      image: "/okro-soup.jpg",
-    },
-    {
-      id: "1-2",
-      name: "Jollof Rice & Plantain",
-      description: "Naija-style jollof rice with crispy, golden plantain slices. Pure comfort food.",
-      price: 2200,
-      image: "/jellof-rice.jpg",
-    },
-  ]
+
 
   return (
     <div className="flex-1 flex flex-col pb-24 bg-background">
@@ -71,13 +63,17 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary" />
             <div>
-              <p className="text-sm font-semibold text-foreground">Welcome, {DUMMY_USER.name}</p>
-              <p className="text-xs text-muted-foreground">{DUMMY_USER.address}</p>
+              <p className="text-sm font-semibold text-foreground">
+                Welcome, {profile?.fullName || "User"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {profile?.address || "No address set"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <img
-              src={DUMMY_USER.avatar || "/placeholder.svg"}
+              src={profile?.photoURL || "/placeholder.svg"}
               alt="User"
               className="w-10 h-10 rounded-full bg-muted object-cover"
             />
@@ -89,7 +85,7 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
       {/* Featured Banner */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex gap-3 bg-background rounded-2xl overflow-hidden border border-border">
-          <div className="w-24 h-24 flex-shrink-0 bg-muted overflow-hidden">
+          <div className="w-24 h-24 shrink-0 bg-muted overflow-hidden">
             <img src="/featured-food.jpg" alt="Featured" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 bg-primary text-primary-foreground p-4 flex flex-col justify-center rounded-r-2xl">
@@ -121,15 +117,16 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
           </div>
 
           <div ref={scrollContainerRef} className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x scroll-smooth">
-            {DUMMY_RESTAURANTS.map((restaurant) => (
+            {restaurants.map((restaurant) => (
               <div
                 key={restaurant.id}
-                className="flex-shrink-0 w-32 snap-start cursor-pointer group"
+                className="shrink-0 w-32 snap-start cursor-pointer group"
                 onClick={() => onSelectRestaurant?.(restaurant)}
               >
                 <div className="w-full h-32 bg-muted rounded-2xl overflow-hidden mb-2 group-hover:opacity-80 transition-opacity">
                   <img
-                    src={restaurant.image || "/placeholder.svg"}
+                    src={restaurant.
+                      coverImage || "/placeholder.svg"}
                     alt={restaurant.name}
                     className="w-full h-full object-cover"
                   />
@@ -143,40 +140,54 @@ export default function HomeScreen({ onSelectRestaurant }: HomeScreenProps) {
         {/* Top Meals */}
         <div className="px-4 pb-6">
           <h2 className="text-lg font-bold text-foreground mb-4">Top Meals</h2>
-          <div className="space-y-4">
-            {topMeals.map((meal) => (
-              <div
-                key={meal.id}
-                className="flex gap-3 bg-background border border-border rounded-2xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-              >
-                <div className="w-24 h-24 flex-shrink-0 bg-muted overflow-hidden">
-                  {meal.badge && (
-                    <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">
-                      {meal.badge}
-                    </div>
-                  )}
-                  <img src={meal.image || "/placeholder.svg"} alt={meal.name} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 p-3 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm text-foreground">{meal.name}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{meal.description}</p>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Spinner className="w-6 h-6 text-primary" />
+            </div>
+          ) : topMeals.length === 0 ? (
+            <div className="flex items-center justify-center py-6 text-muted-foreground">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              <span>No top meals available.</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {topMeals.map((meal) => (
+                <div
+                  key={meal.id}
+                  className="flex gap-3 bg-background border border-border rounded-2xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  <div className="w-24 h-24 shrink-0 bg-muted overflow-hidden relative">
+                    <img
+                      src={meal.image || "/placeholder.svg"}
+                      alt={meal.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary">₦{meal.price.toLocaleString()}</span>
-                    <div className="flex gap-2">
-                      <button className="px-3 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors">
-                        Order now
-                      </button>
-                      <button className="px-3 py-1 border border-primary text-primary text-xs font-semibold rounded-lg hover:bg-primary/10 transition-colors">
-                        Add to Cart
-                      </button>
+                  <div className="flex-1 p-3 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">{meal.name}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{meal.description}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 italic">
+                        From {meal.restaurantName}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary">₦{meal.price.toLocaleString()}</span>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors">
+                          Order now
+                        </button>
+                        <button className="px-3 py-1 border border-primary text-primary text-xs font-semibold rounded-lg hover:bg-primary/10 transition-colors">
+                          Add to Cart
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

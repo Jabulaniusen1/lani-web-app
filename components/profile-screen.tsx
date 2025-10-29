@@ -1,5 +1,6 @@
 "use client"
 
+import {useEffect} from 'react';
 import {
   User,
   LogOut,
@@ -13,21 +14,105 @@ import {
   ChevronRight,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
-import { useState } from "react"
+import { useState, ChangeEvent } from "react"
+
+import { useAuthStore } from "@/store/authStore"
+import { useProfileStore } from "@/store/profileStore"
+import { useAppStore } from "@/store/appStore"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 
 export default function ProfileScreen() {
   const [darkMode, setDarkMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const [fullName, setFullName] = useState("Jon Doe")
+  const [uploading, setUploading] = useState(false)
+  const [phone, setPhone] = useState("")
+  const [address, setAddress] = useState("")
 
-  const handleLogout = () => {
-    // Handle logout logic
-    console.log("Logging out...")
+
+  const logout = useAuthStore((state) => state.logout)
+  const setScreen = useAppStore((state) => state.setScreen)
+  const setTab = useAppStore((state) => state.setTab)
+  const user = useAuthStore((state) => state.user)
+  const updateProfile = useProfileStore((state) => state.updateProfile)
+  const fetchProfile = useProfileStore((state) => state.fetchProfile)
+
+ useEffect(() => {
+  const loadProfile = async () => {
+    if (user?.uid) {
+      await fetchProfile()
+      const profile = useProfileStore.getState().profile
+      if (profile) {
+        setFullName(profile.fullName || "")
+        setPhone(profile.phone || "")
+        setAddress(profile.address || "")
+        setProfilePhoto(profile.photoURL || null)
+      }
+    }
+  }
+  loadProfile()
+}, [user])
+
+
+
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      localStorage.removeItem("lani-user")
+      setTab("home")
+      setScreen("auth")
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
   }
 
   const handleSignInAsRider = () => {
-    // Handle rider sign in
     console.log("Signing in as rider...")
   }
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPhotoFile(e.target.files[0])
+      const preview = URL.createObjectURL(e.target.files[0])
+      setProfilePhoto(preview)
+    }
+  }
+const handleSaveProfile = async () => {
+  if (!fullName.trim() || !user?.uid) return
+  setUploading(true)
+
+  try {
+    let uploadedUrl = profilePhoto
+
+    if (photoFile) {
+      uploadedUrl = await uploadToCloudinary(photoFile)
+    }
+
+    // Update Firestore using profile store
+    await updateProfile({
+      fullName,
+      phone,
+      address,
+      photoURL: uploadedUrl ?? undefined,
+    })
+
+    // Update local state
+    setProfilePhoto(uploadedUrl)
+    setShowModal(false)
+
+    console.log("Profile updated successfully!")
+  } catch (err) {
+    console.error("Error updating profile:", err)
+  } finally {
+    setUploading(false)
+  }
+}
+
+
 
   if (showSettings) {
     return (
@@ -52,14 +137,12 @@ export default function ProfileScreen() {
               </div>
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  darkMode ? "bg-primary" : "bg-muted"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkMode ? "bg-primary" : "bg-muted"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    darkMode ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkMode ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -170,12 +253,21 @@ export default function ProfileScreen() {
       <div className="flex-1 overflow-y-auto p-4">
         {/* User Info Card */}
         <Card className="p-6 mb-6 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-300 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 bg-linear-to-br from-orange-300 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            {profilePhoto ? (
+              <img src={profilePhoto} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
+            ) : (
+              <User className="w-10 h-10 text-white" />
+            )}
           </div>
-          <h2 className="text-2xl font-bold mb-1">Annie Davies</h2>
-          <p className="text-muted-foreground mb-4">annie@example.com</p>
-          <button className="text-primary font-semibold text-sm hover:underline">Edit profile &gt;</button>
+          <h2 className="text-2xl font-bold mb-1">{fullName}</h2>
+          <p className="text-muted-foreground mb-4">{user?.email || "annie@example.com"}</p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-primary font-semibold text-sm hover:underline"
+          >
+            Edit profile &gt;
+          </button>
         </Card>
 
         {/* Menu Items */}
@@ -242,6 +334,62 @@ export default function ProfileScreen() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        {/* --- Edit Profile Modal --- */}
+        {showModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-black p-6 rounded-lg w-11/12 max-w-md">
+      <h2 className="text-xl font-bold mb-4">Update Profile</h2>
+      <div className="space-y-3">
+        <input
+          type="text"
+          placeholder="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+        <input
+          type="text"
+          placeholder="Phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+        <input
+          type="text"
+          placeholder="Address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="w-full border p-2 rounded"
+        />
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => setShowModal(false)}
+            className="px-4 py-2 border rounded"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveProfile}
+            className="px-4 py-2 bg-primary text-white rounded"
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   )

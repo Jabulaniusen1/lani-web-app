@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, createJSONStorage } from "zustand/middleware"
 import { auth, db } from "@/lib/firebase"
 import {
   createUserWithEmailAndPassword,
@@ -9,9 +9,20 @@ import {
   User,
 } from "firebase/auth"
 import { doc, setDoc, getDoc } from "firebase/firestore"
-import type {AuthState} from '@/types/index'
+import type { AuthState } from "@/types/index"
 
-
+//  safe storage (avoids Next.js SSR issues)
+const safeStorage = createJSONStorage(() => {
+  if (typeof window !== "undefined") return localStorage
+  return {
+    getItem: (_key: string) => null,
+    setItem: (_key: string, _value: string) => {},
+    removeItem: (_key: string) => {},
+    length: 0,
+    clear: () => {},
+    key: (_index: number) => null,
+  } as Storage
+})
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -20,8 +31,8 @@ export const useAuthStore = create<AuthState>()(
       loading: false,
       error: null,
 
-      // 🔹 Sign up user and create a Firestore profile
-      signup: async (email, password, phone) => {
+      //  Sign up user and create Firestore profile
+      signup: async (email: string, password: string, phone: string) => {
         set({ loading: true, error: null })
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password)
@@ -37,60 +48,59 @@ export const useAuthStore = create<AuthState>()(
           set({ user, loading: false })
         } catch (error: any) {
           console.error("Signup error:", error)
-          set({ error: error.message, loading: false })
+          set({ error: error.message || "Signup failed", loading: false })
         }
       },
 
-      // 🔹 Login user
-      login: async (email, password) => {
+      // Login user
+      login: async (email: string, password: string) => {
         set({ loading: true, error: null })
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password)
-          const user = userCredential.user
-          set({ user, loading: false })
+          set({ user: userCredential.user, loading: false })
         } catch (error: any) {
           console.error("Login error:", error)
-          set({ error: error.message, loading: false })
+          set({ error: error.message || "Login failed", loading: false })
         }
       },
 
-      // 🔹 Logout user
+      // Logout user
       logout: async () => {
         try {
           await signOut(auth)
           set({ user: null })
         } catch (error: any) {
-          set({ error: error.message })
+          set({ error: error.message || "Logout failed" })
         }
       },
 
-      // 🔹 Fetch profile (from Firestore)
-      fetchUserProfile: async (uid) => {
+      //  Fetch Firestore profile
+      fetchUserProfile: async (uid: string) => {
         try {
-          const docRef = doc(db, "users", uid)
-          const snapshot = await getDoc(docRef)
+          const snapshot = await getDoc(doc(db, "users", uid))
           return snapshot.exists() ? snapshot.data() : null
         } catch (error: any) {
           console.error("Profile fetch error:", error)
-          set({ error: error.message })
+          set({ error: error.message || "Failed to fetch profile" })
           return null
         }
       },
 
-      // 🔹 Manually set user (useful for restoring auth state)
-      setUser: (user) => set({ user }),
+      // Set user manually (e.g., after login)
+      setUser: (user: User | null) => set({ user }),
 
-      // 🔹 Clear error
+      // Clear error messages
       clearError: () => set({ error: null }),
     }),
     {
-      name: "auth-store", // localStorage key
-      partialize: (state) => ({ user: state.user }), // Persist only user
+      name: "auth-store",
+      storage: safeStorage, // prevents persist warning
+      partialize: (state) => ({ user: state.user }), // store only user
     }
   )
 )
 
-// Optional: Automatically sync Firebase auth state
+//  Sync Zustand with Firebase auth state
 onAuthStateChanged(auth, (user) => {
   const { setUser } = useAuthStore.getState()
   setUser(user)
